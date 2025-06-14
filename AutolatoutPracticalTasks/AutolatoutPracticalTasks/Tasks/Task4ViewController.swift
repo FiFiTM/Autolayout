@@ -83,6 +83,7 @@ final class Task4ViewController: UIViewController {
             print("Trait colaludlection changed:", self.traitCollection)
             print(" Horizontal: \(self.traitCollection.horizontalSizeClass.rawValue)")
             print(" Vertical: \(self.traitCollection.verticalSizeClass.rawValue)")
+            self.updateLayoutForCurrentTraits()
         }
     }
     

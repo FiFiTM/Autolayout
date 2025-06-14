@@ -29,8 +29,10 @@ final class Task3ViewController: UIViewController {
 
     private let scrollView = UIScrollView()
     private let contentView = UIView()
-    private let stackView = UIStackView()
-    private var contentHeightConstraint: NSLayoutConstraint!
+    private let formStack = UIStackView()
+    
+    // Constraint to control form positioning
+    private var formBottomConstraint: NSLayoutConstraint!
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -49,8 +51,6 @@ final class Task3ViewController: UIViewController {
         contentView.translatesAutoresizingMaskIntoConstraints = false
 
         // ScrollView layout
-        contentHeightConstraint = contentView.heightAnchor.constraint(greaterThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor)
-        
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
@@ -62,48 +62,37 @@ final class Task3ViewController: UIViewController {
             contentView.leadingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.trailingAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
-            contentHeightConstraint
+            contentView.heightAnchor.constraint(greaterThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor)
         ])
 
-        // Stack View
-        let stackView = UIStackView()
-        stackView.axis = .vertical
-        stackView.spacing = 16
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(stackView)
-
-        NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            stackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            stackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
-        ])
-
-        // Spacer to push content to bottom
-        let topSpacer = UIView()
-        topSpacer.setContentHuggingPriority(.init(1), for: .vertical)
-        topSpacer.setContentCompressionResistancePriority(.init(1), for: .vertical)
-        stackView.addArrangedSubview(topSpacer)
+        // Form Stack
+        formStack.axis = .vertical
+        formStack.spacing = 16
+        formStack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(formStack)
 
         // Labels, fields, and button
         setupLabels()
         setupTextFields()
         setupButton()
 
-        let formStack = UIStackView(arrangedSubviews: [titleLabel, bodyLabel, usernameField, passwordField, logInButton])
-        formStack.axis = .vertical
-        formStack.spacing = 16
-        formStack.translatesAutoresizingMaskIntoConstraints = false
+        formStack.addArrangedSubview(titleLabel)
+        formStack.addArrangedSubview(bodyLabel)
+        formStack.addArrangedSubview(usernameField)
+        formStack.addArrangedSubview(passwordField)
+        formStack.addArrangedSubview(logInButton)
 
         formStack.setCustomSpacing(12, after: titleLabel)
         formStack.setCustomSpacing(40, after: bodyLabel)
         formStack.setCustomSpacing(16, after: passwordField)
 
-        // Set higher priority for form content
-        formStack.setContentHuggingPriority(.init(999), for: .vertical)
-        formStack.setContentCompressionResistancePriority(.init(999), for: .vertical)
-
-        stackView.addArrangedSubview(formStack)
+        formBottomConstraint = formStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
+        
+        NSLayoutConstraint.activate([
+            formStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            formStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            formBottomConstraint
+        ])
     }
 
     private func setupLabels() {
@@ -140,23 +129,14 @@ final class Task3ViewController: UIViewController {
                   let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
                   let curve = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt else { return }
 
-            let bottomInset = keyboardFrame.height
+            let keyboardHeight = keyboardFrame.height
+            self.formBottomConstraint.constant = -(keyboardHeight + 16)
             
             UIView.animate(withDuration: duration,
                           delay: 0,
                           options: UIView.AnimationOptions(rawValue: curve << 16),
                           animations: {
-                // Temporarily deactivate the height constraint to allow content to adjust
-                self.contentHeightConstraint.isActive = false
                 self.view.layoutIfNeeded()
-                
-                self.scrollView.contentInset.bottom = bottomInset
-                self.scrollView.verticalScrollIndicatorInsets.bottom = bottomInset
-            }, completion: { _ in
-                if let activeField = self.view.firstResponder as? UIView {
-                    let convertedFrame = activeField.convert(activeField.bounds, to: self.scrollView)
-                    self.scrollView.scrollRectToVisible(convertedFrame, animated: true)
-                }
             })
         }
 
@@ -165,19 +145,16 @@ final class Task3ViewController: UIViewController {
                                                queue: .main) { [weak self] notification in
             guard let self = self,
                   let userInfo = notification.userInfo,
-                  let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
+                  let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as?Double,
                   let curve = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt else { return }
+            
+            self.formBottomConstraint.constant = -16
             
             UIView.animate(withDuration: duration,
                           delay: 0,
                           options: UIView.AnimationOptions(rawValue: curve << 16),
                           animations: {
-                // Reactivate the height constraint to push content to bottom
-                self.contentHeightConstraint.isActive = true
                 self.view.layoutIfNeeded()
-                
-                self.scrollView.contentInset.bottom = 0
-                self.scrollView.verticalScrollIndicatorInsets.bottom = 0
             })
         }
     }
@@ -188,19 +165,6 @@ final class Task3ViewController: UIViewController {
 
     @objc private func dismissKeyboard() {
         view.endEditing(true)
-    }
-}
-
-// Helper to find current first responder
-private extension UIView {
-    var firstResponder: UIResponder? {
-        if isFirstResponder { return self }
-        for subview in subviews {
-            if let responder = subview.firstResponder {
-                return responder
-            }
-        }
-        return nil
     }
 }
 
